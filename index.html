@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대진표 · Tournament Maker</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&family=Gowun+Dodum&family=Oswald:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="playful">
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="logic.js"></script>
+
+<script type="text/babel">
+/* Setup.jsx — 참가자 입력 화면 */
+
+function SetupScreen({ state, setState, onStart }) {
+  const textRef = React.useRef(null);
+
+  const parsedNames = state.rawText
+    .split(/[\n,]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  React.useEffect(() => {
+    setState(s => ({ ...s, participants: parsedNames }));
+    // eslint-disable-next-line
+  }, [state.rawText]);
+
+  const fillSample = (kind) => {
+    const samples = {
+      students: ['김민준', '이서연', '박지호', '최유나', '정도윤', '한소율', '윤하준', '임채원',
+                 '강시우', '조예린', '서준호', '오지은', '신건우', '배수아', '홍은채', '문태양'],
+      teams: ['1모둠', '2모둠', '3모둠', '4모둠', '5모둠', '6모둠'],
+      classes: ['1반', '2반', '3반', '4반', '5반', '6반', '7반', '8반'],
+    };
+    setState(s => ({ ...s, rawText: samples[kind].join('\n') }));
+  };
+
+  const clearAll = () => setState(s => ({ ...s, rawText: '' }));
+
+  const removeOne = (i) => {
+    const arr = parsedNames.filter((_, idx) => idx !== i);
+    setState(s => ({ ...s, rawText: arr.join('\n') }));
+  };
+
+  const canStart = parsedNames.length >= 2 && state.title.trim().length > 0;
+  const isTeam = state.unit === '팀전';
+
+  return (
+    <div className="setup screen-enter">
+      <div className="setup-header">
+        <h1 className="setup-title">✦ 대진표 만들기 ✦</h1>
+        <p className="setup-sub">참가자를 입력하고 대회 방식을 선택하세요.</p>
+      </div>
+
+      <div className="setup-grid">
+        {/* LEFT — participants */}
+        <div className="card">
+          <div className="card-title"><span className="dot"/> 참가자</div>
+
+          <div className="field">
+            <label className="field-label">단위</label>
+            <div className="segmented">
+              {['개인전', '팀전'].map(u => (
+                <button
+                  key={u}
+                  className={state.unit === u ? 'active' : ''}
+                  onClick={() => setState(s => ({ ...s, unit: u }))}
+                >{u}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <div className="names-counter">
+              <label className="field-label" style={{marginBottom: 0}}>
+                {isTeam ? '팀 목록' : '이름 목록'} <span className="count">{parsedNames.length}</span>{isTeam ? '팀' : '명'}
+              </label>
+              <span className="hint-chip">줄바꿈 또는 쉼표로 구분</span>
+            </div>
+            <textarea
+              ref={textRef}
+              className="textarea"
+              placeholder={isTeam
+                ? '1모둠\n2모둠\n3모둠\n...'
+                : '김민준\n이서연\n박지호\n최유나\n...'}
+              value={state.rawText}
+              onChange={e => setState(s => ({ ...s, rawText: e.target.value }))}
+            />
+            <div className="quick-actions">
+              {!isTeam && <button className="btn sm" onClick={() => fillSample('students')}>학생 이름 샘플</button>}
+              {isTeam && <button className="btn sm" onClick={() => fillSample('teams')}>모둠 샘플</button>}
+              {isTeam && <button className="btn sm" onClick={() => fillSample('classes')}>반 샘플</button>}
+              <button className="btn sm" onClick={clearAll}>전체 삭제</button>
+            </div>
+          </div>
+
+          {parsedNames.length > 0 && (
+            <div className="participant-list">
+              {parsedNames.map((p, i) => (
+                <span key={i} className="participant-chip">
+                  <span className="num">{i + 1}</span>
+                  {p}
+                  <span className="x" onClick={() => removeOne(i)}>×</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT — tournament settings */}
+        <div className="card">
+          <div className="card-title"><span className="dot"/> 대회 설정</div>
+
+          <div className="field">
+            <label className="field-label">대회 이름</label>
+            <input
+              className="input"
+              placeholder="예: 4학년 2반 피구 대회"
+              value={state.title}
+              onChange={e => setState(s => ({ ...s, title: e.target.value }))}
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label">대진 방식</label>
+            <div className="mode-cards">
+              {[
+                { id: 'single', name: '싱글 토너먼트', desc: '한 번 지면 탈락. 빠르고 짜릿함' },
+                { id: 'double', name: '더블 토너먼트', desc: '패자부활전 있음. 공정함' },
+                { id: 'rr', name: '리그전', desc: '모두와 한 번씩. 순위표로 결정' },
+              ].map(m => (
+                <button
+                  key={m.id}
+                  className={'mode-card ' + (state.format === m.id ? 'active' : '')}
+                  onClick={() => setState(s => ({ ...s, format: m.id }))}
+                >
+                  <div className="mode-name">{m.name}</div>
+                  <div className="mode-desc">{m.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <label className="field-label">추첨 방식</label>
+            <div className="segmented">
+              {[
+                { k: 'shuffle', t: '셔플 애니메이션' },
+                { k: 'order', t: '입력한 순서대로' },
+              ].map(o => (
+                <button
+                  key={o.k}
+                  className={state.seeding === o.k ? 'active' : ''}
+                  onClick={() => setState(s => ({ ...s, seeding: o.k }))}
+                >{o.t}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <label className="field-label">경기 기록</label>
+            <div className="segmented">
+              {[
+                { k: 'score', t: '점수로 입력' },
+                { k: 'pick', t: '승자만 선택' },
+              ].map(o => (
+                <button
+                  key={o.k}
+                  className={state.entryMode === o.k ? 'active' : ''}
+                  onClick={() => setState(s => ({ ...s, entryMode: o.k }))}
+                >{o.t}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{marginTop: 28, display: 'flex', justifyContent: 'flex-end', gap: 10}}>
+            <button
+              className="btn primary lg"
+              disabled={!canStart}
+              onClick={onStart}
+              style={{opacity: canStart ? 1 : 0.5}}
+            >
+              🎯 대진표 만들기
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+window.SetupScreen = SetupScreen;
+
+
+/* Shuffle.jsx — 셔플 애니메이션 화면 */
+
+function ShuffleScreen({ names, onDone }) {
+  const [current, setCurrent] = React.useState(names[0] || '');
+  const [phase, setPhase] = React.useState('shuffle'); // 'shuffle' -> 'reveal'
+  const [revealed, setRevealed] = React.useState([]);
+
+  React.useEffect(() => {
+    let i = 0;
+    const total = 30;
+    const interval = setInterval(() => {
+      const idx = Math.floor(Math.random() * names.length);
+      setCurrent(names[idx]);
+      i++;
+      if (i > total) {
+        clearInterval(interval);
+        setPhase('reveal');
+      }
+    }, 70);
+    return () => clearInterval(interval);
+  }, [names]);
+
+  const shuffledRef = React.useRef(null);
+  React.useEffect(() => {
+    if (phase !== 'reveal') return;
+    const shuffled = window.TournLogic.shuffleArray(names);
+    shuffledRef.current = shuffled;
+    const timers = [];
+    // Reset revealed fresh
+    setRevealed([]);
+    shuffled.forEach((name, i) => {
+      const t = setTimeout(() => {
+        setCurrent(name);
+        setRevealed(r => {
+          // Dedupe if already added (StrictMode safety)
+          if (r.length > i) return r;
+          return [...r, name];
+        });
+      }, i * 260);
+      timers.push(t);
+    });
+    const doneT = setTimeout(() => onDone(shuffled), shuffled.length * 260 + 1400);
+    timers.push(doneT);
+    return () => timers.forEach(clearTimeout);
+  }, [phase]);
+
+  return (
+    <div className="shuffle-overlay">
+      <div className="shuffle-stage">
+        <div className="shuffle-title">
+          {phase === 'shuffle' ? '🎲 셔플링 중...' : '✨ 대진 추첨!'}
+        </div>
+        <div className="shuffle-bag">
+          <div
+            key={current + revealed.length}
+            className="shuffle-name"
+            style={{
+              whiteSpace: 'nowrap',
+              maxWidth: '90vw',
+              textAlign: 'center',
+              animation: phase === 'reveal'
+                ? 'popReveal 0.4s ease'
+                : 'shakeName 0.14s ease infinite alternate',
+            }}
+          >
+            {current}
+          </div>
+        </div>
+
+        {phase === 'reveal' && (
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
+            gap: 8, marginTop: 20, maxWidth: 600, margin: '20px auto 0'
+          }}>
+            {revealed.map((n, i) => (
+              <span key={i} className="participant-chip" style={{
+                background: 'var(--primary)', color: 'var(--primary-ink)',
+                borderColor: 'var(--primary)',
+                fontSize: 16, padding: '8px 14px',
+                animation: 'popReveal 0.3s ease',
+              }}>
+                <span className="num" style={{color: 'var(--primary-ink)', opacity: 0.7}}>{i + 1}</span>
+                {n}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div style={{marginTop: 30, color: 'var(--muted)', fontSize: 14}}>
+          {phase === 'shuffle' ? '이름을 섞고 있어요...' : '자리가 정해지고 있어요!'}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes shakeName {
+          from { transform: translate(-50%, -50%) rotate(-3deg) scale(1); }
+          to   { transform: translate(-50%, -50%) rotate(3deg) scale(1.04); }
+        }
+        @keyframes popReveal {
+          0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+          60% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+          100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+window.ShuffleScreen = ShuffleScreen;
+
+
+/* Bracket.jsx — 싱글/더블 토너먼트 브라켓 렌더 */
+
+function BracketView({ tourney, onMatchClick, onPickWinner, entryMode, champion, layout }) {
+  const isDouble = tourney.type === 'double';
+
+  if (isDouble) {
+    return <DoubleBracketView tourney={tourney} onMatchClick={onMatchClick} onPickWinner={onPickWinner} entryMode={entryMode} champion={champion} layout={layout} />;
+  }
+
+  const isVertical = layout === 'vertical';
+  const { rounds } = tourney;
+
+  if (isVertical) {
+    return (
+      <div className="bracket-canvas">
+        <div className="bracket-vertical">
+          {rounds.map((round, rIdx) => (
+            <div key={rIdx} className="vround">
+              <div className="vround-title">
+                <span className="vround-line"></span>
+                <span>{window.TournLogic.roundName(rIdx, rounds.length)}</span>
+                <span className="vround-line"></span>
+              </div>
+              <div className="vround-matches">
+                {round.map((m, mIdx) => (
+                  <MatchCard
+                    key={m.id}
+                    match={m}
+                    matchNum={mIdx + 1}
+                    onClick={() => onMatchClick(m)}
+                    onPickWinner={onPickWinner}
+                    entryMode={entryMode}
+                    isFinal={rIdx === rounds.length - 1}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          {champion && (
+            <div className="vround">
+              <div className="vround-title">
+                <span className="vround-line"></span>
+                <span>우승</span>
+                <span className="vround-line"></span>
+              </div>
+              <div className="vround-matches">
+                <div className="champion-banner">
+                  <div className="champion-trophy">🏆</div>
+                  <div className="champion-label">CHAMPION</div>
+                  <div className="champion-name">{champion.name}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bracket-canvas">
+      <div className="bracket">
+        {rounds.map((round, rIdx) => (
+          <div key={rIdx} className="bracket-round">
+            <div className="round-title">{window.TournLogic.roundName(rIdx, rounds.length)}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', flex: 1, gap: `${8 + rIdx * 16}px` }}>
+              {round.map((m, mIdx) => (
+                <MatchCard
+                  key={m.id}
+                  match={m}
+                  matchNum={mIdx + 1}
+                  onClick={() => onMatchClick(m)}
+                  onPickWinner={onPickWinner}
+                  entryMode={entryMode}
+                  isFinal={rIdx === rounds.length - 1}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+        {champion && (
+          <div className="bracket-round">
+            <div className="round-title">우승</div>
+            <div className="champion-banner">
+              <div className="champion-trophy">🏆</div>
+              <div className="champion-label">CHAMPION</div>
+              <div className="champion-name">{champion.name}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DoubleBracketView({ tourney, onMatchClick, onPickWinner, entryMode, champion, layout }) {
+  const { rounds: winners, losers, grand } = tourney;
+  const isVertical = layout === 'vertical';
+
+  const renderRoundCol = (round, rIdx, totalRounds, labelFn, matchGap) => (
+    <div key={rIdx} className="bracket-round">
+      <div className="round-title">{labelFn(rIdx, totalRounds)}</div>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-around',
+        flex: 1,
+        gap: `${matchGap}px`
+      }}>
+        {round.map((m, mIdx) => (
+          <MatchCard
+            key={m.id}
+            match={m}
+            matchNum={mIdx + 1}
+            onClick={() => onMatchClick(m)}
+            onPickWinner={onPickWinner}
+            entryMode={entryMode}
+            isFinal={false}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderRoundVertical = (round, rIdx, totalRounds, labelFn) => (
+    <div key={rIdx} className="vround">
+      <div className="vround-title">
+        <span className="vround-line"></span>
+        <span>{labelFn(rIdx, totalRounds)}</span>
+        <span className="vround-line"></span>
+      </div>
+      <div className="vround-matches">
+        {round.map((m, mIdx) => (
+          <MatchCard
+            key={m.id}
+            match={m}
+            matchNum={mIdx + 1}
+            onClick={() => onMatchClick(m)}
+            onPickWinner={onPickWinner}
+            entryMode={entryMode}
+            isFinal={false}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  const winnersLabel = (rIdx, total) => window.TournLogic.roundName(rIdx, total);
+  const losersLabel = (rIdx, total) => `패자 R${rIdx + 1}`;
+
+  const grandActive = grand[1].a && grand[1].b;
+  const grandMatches = grandActive ? grand : [grand[0]];
+
+  if (isVertical) {
+    return (
+      <div className="bracket-canvas">
+        <div className="double-section">
+          <div className="section-banner winners-banner">
+            <span>🏅 승자조 Winners</span>
+          </div>
+          <div className="bracket-vertical">
+            {winners.map((round, rIdx) => renderRoundVertical(round, rIdx, winners.length, winnersLabel))}
+          </div>
+        </div>
+
+        <div className="double-section">
+          <div className="section-banner losers-banner">
+            <span>💀 패자조 Losers</span>
+          </div>
+          <div className="bracket-vertical">
+            {losers.map((round, rIdx) => renderRoundVertical(round, rIdx, losers.length, losersLabel))}
+          </div>
+        </div>
+
+        <div className="double-section">
+          <div className="section-banner grand-banner">
+            <span>👑 결승전 Grand Final</span>
+          </div>
+          <div className="bracket-vertical">
+            <div className="vround">
+              <div className="vround-matches">
+                {grandMatches.map((m, mIdx) => (
+                  <div key={m.id} style={{textAlign: 'center'}}>
+                    {mIdx === 1 && <div className="reset-label">⚡ 리셋 매치</div>}
+                    <MatchCard
+                      match={m}
+                      matchNum={mIdx + 1}
+                      onClick={() => onMatchClick(m)}
+                      onPickWinner={onPickWinner}
+                      entryMode={entryMode}
+                      isFinal={true}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {champion && (
+            <div className="champion-banner" style={{margin: '20px auto 0'}}>
+              <div className="champion-trophy">🏆</div>
+              <div className="champion-label">CHAMPION</div>
+              <div className="champion-name">{champion.name}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Horizontal
+  return (
+    <div className="bracket-canvas">
+      <div className="double-section">
+        <div className="section-banner winners-banner">
+          <span>🏅 승자조 Winners</span>
+        </div>
+        <div className="bracket">
+          {winners.map((round, rIdx) =>
+            renderRoundCol(round, rIdx, winners.length, winnersLabel, 8 + rIdx * 16)
+          )}
+        </div>
+      </div>
+
+      <div className="double-section">
+        <div className="section-banner losers-banner">
+          <span>💀 패자조 Losers</span>
+        </div>
+        <div className="bracket">
+          {losers.map((round, rIdx) =>
+            renderRoundCol(round, rIdx, losers.length, losersLabel, 8 + Math.floor(rIdx / 2) * 16)
+          )}
+        </div>
+      </div>
+
+      <div className="double-section">
+        <div className="section-banner grand-banner">
+          <span>👑 결승전 Grand Final</span>
+        </div>
+        <div className="bracket">
+          <div className="bracket-round">
+            <div className="round-title">결승</div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+              {grandMatches.map((m, mIdx) => (
+                <div key={m.id}>
+                  {mIdx === 1 && <div className="reset-label">⚡ 리셋 매치</div>}
+                  <MatchCard
+                    match={m}
+                    matchNum={mIdx + 1}
+                    onClick={() => onMatchClick(m)}
+                    onPickWinner={onPickWinner}
+                    entryMode={entryMode}
+                    isFinal={true}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          {champion && (
+            <div className="bracket-round">
+              <div className="round-title">우승</div>
+              <div className="champion-banner">
+                <div className="champion-trophy">🏆</div>
+                <div className="champion-label">CHAMPION</div>
+                <div className="champion-name">{champion.name}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MatchCard({ match, matchNum, onClick, onPickWinner, entryMode, isFinal }) {
+  const hasA = !!match.a;
+  const hasB = !!match.b;
+  const ready = hasA && hasB;
+  const done = match.winnerIdx !== null && match.scoreA !== 'W' && match.scoreB !== 'W';
+  const bye = (hasA && !hasB) || (!hasA && hasB);
+
+  const aWin = match.winnerIdx === 0;
+  const bWin = match.winnerIdx === 1;
+  const isPick = entryMode === 'pick';
+
+  // In pick mode: click whole match to RE-edit (resets), or click slot directly
+  const handleSlotClick = (idx, e) => {
+    if (!isPick || !ready) return;
+    e.stopPropagation();
+    onPickWinner && onPickWinner(match, idx);
+  };
+
+  // Render the right-side cell of each slot:
+  // - pick mode + winner of this slot: V
+  // - score mode: numeric score
+  const renderSlotMark = (isWinner, score) => {
+    if (isPick) {
+      if (isWinner) return <span className="slot-score win-mark">V</span>;
+      return null;
+    }
+    if (score !== null && score !== undefined) {
+      return <span className="slot-score">{score}</span>;
+    }
+    return null;
+  };
+
+  // Click whole match (score mode) opens modal; in pick mode the whole-match
+  // click only fires when no winner yet AND you click between slots — slot
+  // clicks handle the pick. We still allow whole-match click to re-edit (open
+  // a small choose-again UX) by re-entering pick.
+  const wholeClick = (() => {
+    if (!ready) return undefined;
+    if (isPick) {
+      // Allow re-pick: clicking again on a done match reopens via onClick (handled by parent — opens modal as fallback)
+      return done ? onClick : undefined;
+    }
+    return onClick;
+  })();
+
+  return (
+    <div
+      className={
+        'match' +
+        (ready && !done ? ' active pulse-border' : '') +
+        (done ? ' done' : '') +
+        (isPick && ready ? ' pick-mode' : '')
+      }
+      onClick={wholeClick}
+      style={{ cursor: wholeClick ? 'pointer' : (isPick && ready ? 'default' : 'default'), opacity: bye ? 0.7 : 1 }}
+    >
+      <div className="match-label">
+        {isFinal ? 'FINAL' : `M${matchNum}`}
+      </div>
+      <div
+        className={'match-slot' + (aWin ? ' winner' : (bWin ? ' loser' : '')) + (isPick && ready && !done ? ' pickable' : '')}
+        onClick={(e) => handleSlotClick(0, e)}
+        style={isPick && ready && !done ? { cursor: 'pointer' } : undefined}
+      >
+        <span className="slot-seed">{match.a?.seed ? `#${match.a.seed}` : ''}</span>
+        <span className={'slot-name' + (hasA ? '' : ' empty')}>
+          {hasA ? match.a.name : (bye ? '부전승' : '대기 중')}
+        </span>
+        {renderSlotMark(aWin, match.scoreA)}
+      </div>
+      <div
+        className={'match-slot' + (bWin ? ' winner' : (aWin ? ' loser' : '')) + (isPick && ready && !done ? ' pickable' : '')}
+        onClick={(e) => handleSlotClick(1, e)}
+        style={isPick && ready && !done ? { cursor: 'pointer' } : undefined}
+      >
+        <span className="slot-seed">{match.b?.seed ? `#${match.b.seed}` : ''}</span>
+        <span className={'slot-name' + (hasB ? '' : ' empty')}>
+          {hasB ? match.b.name : (bye ? '부전승' : '대기 중')}
+        </span>
+        {renderSlotMark(bWin, match.scoreB)}
+      </div>
+    </div>
+  );
+}
+
+window.BracketView = BracketView;
+
+
+/* RoundRobin.jsx — 리그전 화면 */
+
+function RoundRobinView({ tourney, onMatchClick, onPickWinner, entryMode }) {
+  const standings = window.TournLogic.computeStandings(tourney);
+
+  return (
+    <div className="rr-wrap">
+      <div>
+        <div className="de-section-title">📊 순위표</div>
+        <table className="rr-table">
+          <thead>
+            <tr>
+              <th>순위</th>
+              <th style={{textAlign: 'left'}}>참가자</th>
+              <th>경기</th>
+              <th>승</th>
+              <th>무</th>
+              <th>패</th>
+              <th>득실</th>
+              <th>승점</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((row, i) => (
+              <tr key={row.name} className={i === 0 && row.played > 0 ? 'rank-1' : ''}>
+                <td className="rr-rank">{i + 1}</td>
+                <td className="player-name">{row.name}</td>
+                <td>{row.played}</td>
+                <td>{row.w}</td>
+                <td>{row.d}</td>
+                <td>{row.l}</td>
+                <td>{row.diff > 0 ? '+' : ''}{row.diff}</td>
+                <td style={{fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--primary)'}}>
+                  {row.pts}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <div className="de-section-title">🏐 경기 일정</div>
+        <div className="rr-matches">
+          {tourney.rounds.map((round, rIdx) => (
+            <div key={rIdx}>
+              <div style={{
+                fontFamily: 'var(--font-display)', fontSize: 15,
+                color: 'var(--muted)', margin: '12px 0 8px', letterSpacing: 0.5
+              }}>
+                Round {rIdx + 1}
+              </div>
+              {round.map((m, mIdx) => {
+                const ready = !!m.a && !!m.b;
+                const done = m.winnerIdx !== null;
+                const aWin = m.winnerIdx === 0;
+                const bWin = m.winnerIdx === 1;
+                const isPick = entryMode === 'pick';
+                const handleSlot = (idx, e) => {
+                  if (!isPick || !ready || done) return;
+                  e.stopPropagation();
+                  onPickWinner && onPickWinner(m, idx);
+                };
+                const renderMark = (isWin, score) => {
+                  if (isPick) return isWin ? <span className="slot-score win-mark">V</span> : null;
+                  if (score !== null) return <span className="slot-score">{score}</span>;
+                  return null;
+                };
+                return (
+                  <div
+                    key={m.id}
+                    className={'match' + (ready && !done ? ' active' : '') + (done ? ' done' : '') + (isPick && ready ? ' pick-mode' : '')}
+                    style={{ marginBottom: 8, cursor: (isPick && !done) ? 'default' : 'pointer' }}
+                    onClick={() => { if (!isPick || done) onMatchClick(m); }}
+                  >
+                    <div className="match-label">R{rIdx + 1}·{mIdx + 1}</div>
+                    <div
+                      className={'match-slot' + (aWin ? ' winner' : (bWin ? ' loser' : '')) + (isPick && ready && !done ? ' pickable' : '')}
+                      onClick={(e) => handleSlot(0, e)}
+                      style={isPick && ready && !done ? { cursor: 'pointer' } : undefined}
+                    >
+                      <span className="slot-name">{m.a.name}</span>
+                      {renderMark(aWin, m.scoreA)}
+                    </div>
+                    <div
+                      className={'match-slot' + (bWin ? ' winner' : (aWin ? ' loser' : '')) + (isPick && ready && !done ? ' pickable' : '')}
+                      onClick={(e) => handleSlot(1, e)}
+                      style={isPick && ready && !done ? { cursor: 'pointer' } : undefined}
+                    >
+                      <span className="slot-name">{m.b.name}</span>
+                      {renderMark(bWin, m.scoreB)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.RoundRobinView = RoundRobinView;
+
+
+/* ScoreModal.jsx + Confetti + Tweaks */
+
+function ScoreModal({ match, entryMode, onSave, onClose }) {
+  const [a, setA] = React.useState(match.scoreA ?? 0);
+  const [b, setB] = React.useState(match.scoreB ?? 0);
+  const aRef = React.useRef(null);
+
+  React.useEffect(() => {
+    setTimeout(() => aRef.current?.focus(), 50);
+  }, []);
+
+  const handlePick = (idx) => {
+    if (idx === 0) onSave(1, 0);
+    else onSave(0, 1);
+  };
+
+  const handleSave = () => {
+    const na = parseInt(a, 10) || 0;
+    const nb = parseInt(b, 10) || 0;
+    if (na === nb) {
+      alert('무승부는 토너먼트에서 허용되지 않아요. 점수를 다르게 입력해주세요.');
+      return;
+    }
+    onSave(na, nb);
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter') handleSave();
+    if (e.key === 'Escape') onClose();
+  };
+
+  if (entryMode === 'pick') {
+    return (
+      <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal" onClick={e => e.stopPropagation()}>
+          <h3 className="modal-title">🏁 승자 선택</h3>
+          <div className="modal-sub">누가 이겼나요?</div>
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, margin: '24px 0'}}>
+            <button
+              className="mode-card"
+              style={{textAlign: 'center', padding: '28px 16px'}}
+              onClick={() => handlePick(0)}
+            >
+              <div style={{fontSize: 32, marginBottom: 8}}>🥇</div>
+              <div className="mode-name" style={{fontSize: 22}}>{match.a.name}</div>
+            </button>
+            <button
+              className="mode-card"
+              style={{textAlign: 'center', padding: '28px 16px'}}
+              onClick={() => handlePick(1)}
+            >
+              <div style={{fontSize: 32, marginBottom: 8}}>🥇</div>
+              <div className="mode-name" style={{fontSize: 22}}>{match.b.name}</div>
+            </button>
+          </div>
+          <div className="modal-actions">
+            <button className="btn ghost" onClick={onClose}>취소</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} onKeyDown={handleKey}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 className="modal-title">📝 경기 결과 입력</h3>
+        <div className="modal-sub">점수를 입력하면 승자가 자동으로 다음 라운드로 진출해요.</div>
+
+        <div className="score-entry">
+          <div className="score-player">
+            <div className="score-player-name">{match.a.name}</div>
+            <input
+              ref={aRef}
+              className="score-input"
+              type="number"
+              min="0"
+              value={a}
+              onChange={e => setA(e.target.value)}
+              onKeyDown={handleKey}
+            />
+          </div>
+          <div className="score-vs">VS</div>
+          <div className="score-player">
+            <div className="score-player-name">{match.b.name}</div>
+            <input
+              className="score-input"
+              type="number"
+              min="0"
+              value={b}
+              onChange={e => setB(e.target.value)}
+              onKeyDown={handleKey}
+            />
+          </div>
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn ghost" onClick={onClose}>취소</button>
+          <button className="btn primary" onClick={handleSave}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* --- Confetti burst --- */
+function ConfettiBurst({ active }) {
+  const [pieces, setPieces] = React.useState([]);
+  React.useEffect(() => {
+    if (!active) return;
+    const colors = ['#ff7a59', '#3ecfb0', '#ffcd3c', '#eaff00', '#f43f5e', '#38bdf8'];
+    const arr = Array.from({ length: 80 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.8,
+      dur: 2 + Math.random() * 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * 360,
+      shape: Math.random() > 0.5 ? '50%' : '2px',
+    }));
+    setPieces(arr);
+    const t = setTimeout(() => setPieces([]), 5000);
+    return () => clearTimeout(t);
+  }, [active]);
+
+  return (
+    <>
+      {pieces.map(p => (
+        <div
+          key={p.id}
+          className="confetti-piece"
+          style={{
+            left: p.left + '%',
+            background: p.color,
+            borderRadius: p.shape,
+            animation: `confettiFall ${p.dur}s ${p.delay}s cubic-bezier(0.3, 0.7, 0.4, 1) forwards`,
+            transform: `rotate(${p.rot}deg)`,
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes confettiFall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(110vh) rotate(720deg); opacity: 0.6; }
+        }
+      `}</style>
+    </>
+  );
+}
+
+/* --- Tweaks Panel --- */
+function TweaksPanel({ settings, setSettings, onClose }) {
+  const themes = [
+    { id: 'playful', name: '밝고 귀여움', colors: ['#ff7a59', '#3ecfb0', '#ffcd3c'] },
+    { id: 'arena', name: '경기장', colors: ['#0b0f1f', '#eaff00', '#f43f5e'] },
+    { id: 'warm', name: '교실', colors: ['#f5ede0', '#c56a3a', '#6b8e7f'] },
+  ];
+
+  return (
+    <div className="tweaks-panel">
+      <div className="tweaks-title">
+        ⚙️ Tweaks
+        <button className="btn sm ghost" onClick={onClose}>✕</button>
+      </div>
+      <div className="tweaks-sub">디자인을 자유롭게 바꿔보세요</div>
+
+      <div className="field-label" style={{marginTop: 10}}>테마</div>
+      <div className="theme-swatches">
+        {themes.map(t => (
+          <div
+            key={t.id}
+            className={'theme-swatch' + (settings.theme === t.id ? ' active' : '')}
+            onClick={() => setSettings(s => ({ ...s, theme: t.id }))}
+          >
+            <div className="sw-preview">
+              {t.colors.map((c, i) => <span key={i} style={{background: c}} />)}
+            </div>
+            <div className="sw-label">{t.name}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="tweak-row">
+        <label>글자 크기</label>
+        <div className="segmented">
+          {['S', 'M', 'L', 'XL'].map(sz => (
+            <button key={sz}
+              className={settings.fontSize === sz ? 'active' : ''}
+              onClick={() => setSettings(s => ({ ...s, fontSize: sz }))}
+            >{sz}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>브라켓 방향</label>
+        <div className="segmented">
+          {[{k:'horizontal',t:'가로'},{k:'vertical',t:'세로'}].map(o => (
+            <button key={o.k}
+              className={settings.layout === o.k ? 'active' : ''}
+              onClick={() => setSettings(s => ({ ...s, layout: o.k }))}
+            >{o.t}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>애니메이션</label>
+        <div
+          className={'switch' + (settings.animations ? ' on' : '')}
+          onClick={() => setSettings(s => ({ ...s, animations: !s.animations }))}
+        />
+      </div>
+
+      <div className="tweak-row">
+        <label>효과음</label>
+        <div
+          className={'switch' + (settings.sound ? ' on' : '')}
+          onClick={() => setSettings(s => ({ ...s, sound: !s.sound }))}
+        />
+      </div>
+
+      <div className="tweak-row">
+        <label>컨페티 축하</label>
+        <div
+          className={'switch' + (settings.confetti ? ' on' : '')}
+          onClick={() => setSettings(s => ({ ...s, confetti: !s.confetti }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+window.ScoreModal = ScoreModal;
+window.ConfettiBurst = ConfettiBurst;
+window.TweaksPanel = TweaksPanel;
+
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "playful",
+  "fontSize": "M",
+  "layout": "horizontal",
+  "animations": true,
+  "sound": true,
+  "confetti": true,
+  "defaultTitle": "우리 반 대항전",
+  "headline": "✦ 대진표 만들기 ✦"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [stage, setStage] = useState('setup');
+  const [setup, setSetup] = useState(() => {
+    const saved = localStorage.getItem('daejin_setup_v1');
+    if (saved) { try { return JSON.parse(saved); } catch(e){} }
+    return {
+      title: TWEAK_DEFAULTS.defaultTitle || '우리 반 대항전',
+      unit: '개인전',
+      rawText: ['김민준','이서연','박지호','최유나','정도윤','한소율','윤하준','임채원'].join('\n'),
+      participants: [],
+      format: 'single',
+      seeding: 'shuffle',
+      entryMode: 'score',
+    };
+  });
+
+  const [tourney, setTourney] = useState(null);
+  const [activeMatch, setActiveMatch] = useState(null);
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [showChampion, setShowChampion] = useState(false);
+
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('daejin_settings_v1');
+    if (saved) { try { return { ...TWEAK_DEFAULTS, ...JSON.parse(saved) }; } catch(e){} }
+    return { ...TWEAK_DEFAULTS };
+  });
+
+  const [tweaksActive, setTweaksActive] = useState(false);
+  useEffect(() => {
+    const handler = (e) => {
+      if (!e?.data) return;
+      if (e.data.type === '__activate_edit_mode') setTweaksActive(true);
+      if (e.data.type === '__deactivate_edit_mode') setTweaksActive(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent?.postMessage({type: '__edit_mode_available'}, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  useEffect(() => { localStorage.setItem('daejin_setup_v1', JSON.stringify(setup)); }, [setup]);
+  useEffect(() => {
+    localStorage.setItem('daejin_settings_v1', JSON.stringify(settings));
+    document.body.dataset.theme = settings.theme;
+    const sizes = { S: 15, M: 18, L: 21, XL: 24 };
+    document.body.style.fontSize = (sizes[settings.fontSize] || 18) + 'px';
+    window.parent?.postMessage({ type: '__edit_mode_set_keys', edits: settings }, '*');
+  }, [settings]);
+
+  const handleStart = () => {
+    const names = setup.participants;
+    if (names.length < 2) return;
+    if (setup.seeding === 'shuffle') setStage('shuffle');
+    else { buildTournament(names); setStage('bracket'); }
+  };
+
+  const buildTournament = (names) => {
+    let t;
+    if (setup.format === 'rr') t = window.TournLogic.buildRoundRobin(names);
+    else if (setup.format === 'double') t = window.TournLogic.buildDoubleElimination(names);
+    else t = window.TournLogic.buildSingleElimination(names);
+    setTourney(t);
+  };
+
+  const handleShuffleDone = (shuffled) => {
+    buildTournament(shuffled);
+    setStage('bracket');
+  };
+
+  const handleMatchSave = (sa, sb) => {
+    if (!activeMatch || !tourney) return;
+    const copy = JSON.parse(JSON.stringify(tourney));
+    if (tourney.type === 'roundrobin') {
+      const m = window.TournLogic.getMatchById(copy.rounds, activeMatch.id);
+      if (m) {
+        m.scoreA = sa; m.scoreB = sb;
+        if (sa > sb) m.winnerIdx = 0;
+        else if (sb > sa) m.winnerIdx = 1;
+        else m.winnerIdx = null;
+      }
+    } else if (tourney.type === 'double') {
+      window.TournLogic.setScoreDouble(copy, activeMatch.id, sa, sb);
+    } else {
+      window.TournLogic.setScore(copy.rounds, activeMatch.id, sa, sb);
+    }
+    setTourney(copy);
+    setActiveMatch(null);
+
+    if (copy.type !== 'roundrobin') {
+      const champ = copy.type === 'double'
+        ? window.TournLogic.getChampionDouble(copy)
+        : window.TournLogic.getChampion(copy.rounds);
+      if (champ && !showChampion) {
+        setShowChampion(true);
+        if (settings.sound) playSound();
+      }
+    }
+  };
+
+  // Pick mode: clicking a slot = that side wins immediately. Stamp 'W'/'L'
+  // sentinels so existing tournament-progression logic accepts the result
+  // without rendering numeric scores (MatchCard interprets these specially).
+  const handlePickWinner = (match, idx) => {
+    if (!tourney || !match || !match.a || !match.b) return;
+    const copy = JSON.parse(JSON.stringify(tourney));
+    const sa = idx === 0 ? 1 : 0;
+    const sb = idx === 1 ? 1 : 0;
+    if (tourney.type === 'roundrobin') {
+      const m = window.TournLogic.getMatchById(copy.rounds, match.id);
+      if (m) { m.scoreA = sa; m.scoreB = sb; m.winnerIdx = idx; }
+    } else if (tourney.type === 'double') {
+      window.TournLogic.setScoreDouble(copy, match.id, sa, sb);
+    } else {
+      window.TournLogic.setScore(copy.rounds, match.id, sa, sb);
+    }
+    setTourney(copy);
+
+    if (copy.type !== 'roundrobin') {
+      const champ = copy.type === 'double'
+        ? window.TournLogic.getChampionDouble(copy)
+        : window.TournLogic.getChampion(copy.rounds);
+      if (champ && !showChampion) {
+        setShowChampion(true);
+        if (settings.sound) playSound();
+      }
+    }
+  };
+
+  const playSound = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((f, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.frequency.value = f;
+        o.type = 'triangle';
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.12);
+        g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + i * 0.12 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.12 + 0.4);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(ctx.currentTime + i * 0.12);
+        o.stop(ctx.currentTime + i * 0.12 + 0.4);
+      });
+    } catch(e) {}
+  };
+
+  const reset = () => {
+    if (!confirm('대진표를 초기화할까요? 입력한 점수도 모두 사라져요.')) return;
+    setTourney(null);
+    setActiveMatch(null);
+    setShowChampion(false);
+    setStage('setup');
+  };
+
+  const champion = tourney && tourney.type !== 'roundrobin'
+    ? (tourney.type === 'double'
+        ? window.TournLogic.getChampionDouble(tourney)
+        : window.TournLogic.getChampion(tourney.rounds))
+    : null;
+
+  const rrChampion = tourney && tourney.type === 'roundrobin'
+    ? (() => {
+        const s = window.TournLogic.computeStandings(tourney);
+        const allDone = tourney.rounds.every(r => r.every(m => m.winnerIdx !== null || m.scoreA !== null));
+        return allDone && s[0] && s[0].played > 0 ? { name: s[0].name } : null;
+      })() : null;
+
+  const finalChampion = champion || rrChampion;
+
+  return (
+    <div className="app" data-screen-label={stage === 'setup' ? '01 Setup' : (stage === 'shuffle' ? '02 Shuffle' : '03 Bracket')}>
+      <div className="topbar">
+        <div className="brand">
+          <div className="brand-mark">✦</div>
+          <div>
+            <div className="brand-name">대진표</div>
+            <div className="brand-sub">TOURNAMENT MAKER FOR CLASSROOM</div>
+          </div>
+        </div>
+        <div className="topbar-actions">
+          {stage === 'bracket' && (
+            <>
+              {tourney && tourney.type !== 'roundrobin' && (
+                <div className="segmented" style={{marginRight: 8}}>
+                  {[{k:'horizontal',t:'↔ 가로'},{k:'vertical',t:'↕ 세로'}].map(o => (
+                    <button key={o.k}
+                      className={settings.layout === o.k ? 'active' : ''}
+                      onClick={() => setSettings(s => ({ ...s, layout: o.k }))}
+                    >{o.t}</button>
+                  ))}
+                </div>
+              )}
+              <button className="btn" onClick={() => window.print()}>🖨 인쇄</button>
+              <button className="btn" onClick={reset}>↻ 새 대회</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {stage === 'setup' && (
+        <SetupScreen state={setup} setState={setSetup} onStart={handleStart} />
+      )}
+
+      {stage === 'shuffle' && (
+        <ShuffleScreen names={setup.participants} onDone={handleShuffleDone} />
+      )}
+
+      {stage === 'bracket' && tourney && (
+        <div className="bracket-screen screen-enter">
+          <div className="tournament-header">
+            <div>
+              <h1 className="tournament-title">🏆 {setup.title}</h1>
+              <div style={{color: 'var(--muted)', fontSize: 14, marginTop: 4}}>
+                {setup.unit} · {tourney.type === 'roundrobin' ? '리그전'
+                  : tourney.type === 'double' ? '더블 토너먼트' : '싱글 토너먼트'}
+              </div>
+            </div>
+            <div className="tournament-meta">
+              <div>참가<b>{setup.participants.length}</b></div>
+              {tourney.type !== 'roundrobin' && (
+                <div>라운드<b>{tourney.rounds.length}</b></div>
+              )}
+              <div>
+                경기<b>
+                  {tourney.rounds.reduce((a, r) => a + r.filter(m => m.winnerIdx !== null).length, 0)}
+                  /
+                  {tourney.rounds.reduce((a, r) => a + r.filter(m => m.a && m.b).length, 0)}
+                </b>
+              </div>
+            </div>
+          </div>
+
+          {tourney.type === 'roundrobin' ? (
+            <RoundRobinView tourney={tourney} onMatchClick={setActiveMatch} onPickWinner={handlePickWinner} entryMode={setup.entryMode} />
+          ) : (
+            <BracketView tourney={tourney} onMatchClick={setActiveMatch} onPickWinner={handlePickWinner} entryMode={setup.entryMode} champion={champion} layout={settings.layout} />
+          )}
+        </div>
+      )}
+
+      {activeMatch && activeMatch.a && activeMatch.b && setup.entryMode !== 'pick' && (
+        <ScoreModal match={activeMatch} entryMode={setup.entryMode} onSave={handleMatchSave} onClose={() => setActiveMatch(null)} />
+      )}
+
+      {finalChampion && settings.confetti && showChampion && (
+        <>
+          <ConfettiBurst active={showChampion} />
+          <ChampionOverlay champion={finalChampion} onClose={() => setShowChampion(false)} />
+        </>
+      )}
+
+      {tweaksActive && (
+        <>
+          <div className="tweaks-fab" onClick={() => setTweaksOpen(o => !o)}>⚙</div>
+          {tweaksOpen && (
+            <TweaksPanel settings={settings} setSettings={setSettings} onClose={() => setTweaksOpen(false)} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ChampionOverlay({ champion, onClose }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}
+      style={{ background: 'color-mix(in oklab, var(--bg) 85%, black)', zIndex: 180 }}>
+      <div className="modal" onClick={e => e.stopPropagation()}
+        style={{ textAlign: 'center', padding: 48, maxWidth: 560,
+          background: 'linear-gradient(135deg, var(--surface), color-mix(in oklab, var(--accent) 20%, var(--surface)))' }}>
+        <div style={{fontSize: 96, animation: 'trophyBounce 1.2s ease-in-out infinite'}}>🏆</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 20,
+          color: 'var(--accent)', letterSpacing: 4, marginTop: 8 }}>
+          🎉  CHAMPION  🎉
+        </div>
+        <div style={{ fontFamily: 'var(--font-display)',
+          fontSize: 56, color: 'var(--primary)', margin: '12px 0 6px',
+          textShadow: '0 4px 20px color-mix(in oklab, var(--primary) 40%, transparent)' }}>
+          {champion.name}
+        </div>
+        <div style={{color: 'var(--ink-soft)', fontSize: 16}}>우승을 축하합니다!</div>
+        <button className="btn primary lg" onClick={onClose} style={{marginTop: 28}}>
+          확인
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>
