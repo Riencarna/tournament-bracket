@@ -1311,6 +1311,8 @@ function App() {
           ) : (
             <BracketView tourney={tourney} onMatchClick={setActiveMatch} onPickWinner={handlePickWinner} entryMode={setup.entryMode} champion={champion} layout={settings.layout} />
           )}
+
+          {tourney.type === 'single' && <FinalRankings tourney={tourney} />}
         </div>
       )}
 
@@ -1359,6 +1361,41 @@ function ChampionOverlay({ champion, onClose }) {
           확인
         </button>
       </div>
+    </div>
+  );
+}
+
+function FinalRankings({ tourney }) {
+  const [open, setOpen] = useState(true);
+  const rankings = window.TournLogic.computeFinalRankings(tourney);
+  if (!rankings || rankings.length === 0) return null;
+
+  const medal = (r) => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : '';
+
+  return (
+    <div className="final-rankings">
+      <div className="rankings-header" onClick={() => setOpen(o => !o)}>
+        <div className="rankings-title">🏆 최종 순위</div>
+        <button
+          className="btn sm ghost"
+          onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        >
+          {open ? '▲ 접기' : '▼ 펼치기'}
+        </button>
+      </div>
+      {open && (
+        <div className="rankings-body">
+          {rankings.map((r, i) => (
+            <div key={i} className={'rank-row' + (r.rank <= 3 ? ' top' : '')}>
+              <span className="rank-num">
+                {r.tied ? '공동 ' : ''}{r.rank}위
+              </span>
+              <span className="rank-medal">{medal(r.rank)}</span>
+              <span className="rank-name">{r.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

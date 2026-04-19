@@ -513,6 +513,63 @@ function getChampionDouble(t) {
   return null;
 }
 
+/* Final rankings for single elimination.
+   Returns null unless the final is resolved. Rows: { rank, name, tied }.
+   - 1st/2nd: final winner/loser
+   - 3rd/4th: from 3·4위전 if played; otherwise semi losers tied at 3rd
+   - Earlier round losers: tied groups starting at 2^(N-r-1)+1
+*/
+function computeFinalRankings(t) {
+  if (!t || t.type !== 'single') return null;
+  const rounds = t.rounds;
+  if (!rounds || rounds.length === 0) return null;
+  const finalMatch = rounds[rounds.length - 1][0];
+  if (!finalMatch || finalMatch.winnerIdx === null) return null;
+
+  const rows = [];
+  const N = rounds.length;
+
+  const champion = finalMatch.winnerIdx === 0 ? finalMatch.a : finalMatch.b;
+  const runnerUp = finalMatch.winnerIdx === 0 ? finalMatch.b : finalMatch.a;
+  if (champion) rows.push({ rank: 1, name: champion.name });
+  if (runnerUp) rows.push({ rank: 2, name: runnerUp.name });
+
+  if (N >= 2) {
+    const semiRound = rounds[N - 2];
+    const tp = t.thirdPlace;
+    if (tp && tp.winnerIdx !== null && tp.a && tp.b) {
+      const third = tp.winnerIdx === 0 ? tp.a : tp.b;
+      const fourth = tp.winnerIdx === 0 ? tp.b : tp.a;
+      rows.push({ rank: 3, name: third.name });
+      rows.push({ rank: 4, name: fourth.name });
+    } else {
+      const semiLosers = [];
+      semiRound.forEach(m => {
+        if (m.a && m.b && m.winnerIdx !== null) {
+          const l = m.winnerIdx === 0 ? m.b : m.a;
+          if (l) semiLosers.push(l.name);
+        }
+      });
+      semiLosers.forEach(name => rows.push({ rank: 3, name, tied: semiLosers.length > 1 }));
+    }
+  }
+
+  for (let r = N - 3; r >= 0; r--) {
+    const round = rounds[r];
+    const startRank = Math.pow(2, N - r - 1) + 1;
+    const losers = [];
+    round.forEach(m => {
+      if (m.a && m.b && m.winnerIdx !== null) {
+        const l = m.winnerIdx === 0 ? m.b : m.a;
+        if (l) losers.push(l.name);
+      }
+    });
+    losers.forEach(name => rows.push({ rank: startRank, name, tied: losers.length > 1 }));
+  }
+
+  return rows;
+}
+
 window.TournLogic = {
   nextPow2,
   shuffleArray,
@@ -530,4 +587,5 @@ window.TournLogic = {
   roundName,
   getMatchById,
   computeStandings,
+  computeFinalRankings,
 };
