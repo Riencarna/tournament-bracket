@@ -355,6 +355,25 @@ function BracketView({ tourney, onMatchClick, onPickWinner, entryMode, champion,
               </div>
             </div>
           ))}
+          {tourney.thirdPlace && (
+            <div className="vround">
+              <div className="vround-title">
+                <span className="vround-line"></span>
+                <span>🥉 3·4위전</span>
+                <span className="vround-line"></span>
+              </div>
+              <div className="vround-matches">
+                <MatchCard
+                  match={tourney.thirdPlace}
+                  customLabel="3·4위"
+                  onClick={() => onMatchClick(tourney.thirdPlace)}
+                  onPickWinner={onPickWinner}
+                  entryMode={entryMode}
+                  isFinal={false}
+                />
+              </div>
+            </div>
+          )}
           {champion && (
             <div className="vround">
               <div className="vround-title">
@@ -379,24 +398,42 @@ function BracketView({ tourney, onMatchClick, onPickWinner, entryMode, champion,
   return (
     <div className="bracket-canvas">
       <div className="bracket">
-        {rounds.map((round, rIdx) => (
-          <div key={rIdx} className="bracket-round">
-            <div className="round-title">{window.TournLogic.roundName(rIdx, rounds.length)}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', flex: 1, gap: `${8 + rIdx * 16}px` }}>
-              {round.map((m, mIdx) => (
-                <MatchCard
-                  key={m.id}
-                  match={m}
-                  matchNum={mIdx + 1}
-                  onClick={() => onMatchClick(m)}
-                  onPickWinner={onPickWinner}
-                  entryMode={entryMode}
-                  isFinal={rIdx === rounds.length - 1}
-                />
-              ))}
+        {rounds.map((round, rIdx) => {
+          const isFinalCol = rIdx === rounds.length - 1;
+          return (
+            <div key={rIdx} className="bracket-round">
+              <div className="round-title">{window.TournLogic.roundName(rIdx, rounds.length)}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', flex: 1, gap: `${8 + rIdx * 16}px` }}>
+                {round.map((m, mIdx) => (
+                  <MatchCard
+                    key={m.id}
+                    match={m}
+                    matchNum={mIdx + 1}
+                    onClick={() => onMatchClick(m)}
+                    onPickWinner={onPickWinner}
+                    entryMode={entryMode}
+                    isFinal={isFinalCol}
+                  />
+                ))}
+                {isFinalCol && tourney.thirdPlace && (
+                  <div style={{marginTop: 28}}>
+                    <div style={{fontSize: 13, color: 'var(--muted)', textAlign: 'center', letterSpacing: 0.5, marginBottom: 6, fontFamily: 'var(--font-display)'}}>
+                      🥉 3·4위전
+                    </div>
+                    <MatchCard
+                      match={tourney.thirdPlace}
+                      customLabel="3·4위"
+                      onClick={() => onMatchClick(tourney.thirdPlace)}
+                      onPickWinner={onPickWinner}
+                      entryMode={entryMode}
+                      isFinal={false}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {champion && (
           <div className="bracket-round">
             <div className="round-title">우승</div>
@@ -590,7 +627,7 @@ function DoubleBracketView({ tourney, onMatchClick, onPickWinner, entryMode, cha
   );
 }
 
-function MatchCard({ match, matchNum, onClick, onPickWinner, entryMode, isFinal }) {
+function MatchCard({ match, matchNum, customLabel, onClick, onPickWinner, entryMode, isFinal }) {
   const hasA = !!match.a;
   const hasB = !!match.b;
   const ready = hasA && hasB;
@@ -647,7 +684,7 @@ function MatchCard({ match, matchNum, onClick, onPickWinner, entryMode, isFinal 
       style={{ cursor: wholeClick ? 'pointer' : (isPick && ready ? 'default' : 'default'), opacity: bye ? 0.7 : 1 }}
     >
       <div className="match-label">
-        {isFinal ? 'FINAL' : `M${matchNum}`}
+        {customLabel || (isFinal ? 'FINAL' : `M${matchNum}`)}
       </div>
       <div
         className={'match-slot' + (aWin ? ' winner' : (bWin ? ' loser' : '')) + (isPick && ready && !done ? ' pickable' : '')}
@@ -1119,7 +1156,7 @@ function App() {
     } else if (tourney.type === 'double') {
       window.TournLogic.setScoreDouble(copy, activeMatch.id, sa, sb);
     } else {
-      window.TournLogic.setScore(copy.rounds, activeMatch.id, sa, sb);
+      window.TournLogic.setScore(copy, activeMatch.id, sa, sb);
     }
     setTourney(copy);
     setActiveMatch(null);
@@ -1149,7 +1186,7 @@ function App() {
     } else if (tourney.type === 'double') {
       window.TournLogic.setScoreDouble(copy, match.id, sa, sb);
     } else {
-      window.TournLogic.setScore(copy.rounds, match.id, sa, sb);
+      window.TournLogic.setScore(copy, match.id, sa, sb);
     }
     setTourney(copy);
 

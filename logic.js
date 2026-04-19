@@ -99,7 +99,46 @@ function buildSingleElimination(participants) {
 
   // After setup, propagate BYE winners forward
   propagateSingle(rounds);
-  return { type: 'single', size, rounds };
+
+  // Third place match — only if there's a semifinal with exactly 2 matches
+  let thirdPlace = null;
+  if (rounds.length >= 2 && rounds[rounds.length - 2].length === 2) {
+    thirdPlace = {
+      id: 'tp1',
+      round: rounds.length - 1,
+      kind: 'thirdPlace',
+      a: null, b: null,
+      scoreA: null, scoreB: null,
+      winnerIdx: null,
+    };
+  }
+
+  const result = { type: 'single', size, rounds, thirdPlace };
+  propagateThirdPlace(result);
+  return result;
+}
+
+function propagateThirdPlace(t) {
+  if (!t.thirdPlace) return;
+  const rounds = t.rounds;
+  if (rounds.length < 2) return;
+  const sfRound = rounds[rounds.length - 2];
+  if (sfRound.length !== 2) return;
+  const tp = t.thirdPlace;
+  const prevA = tp.a?.name;
+  const prevB = tp.b?.name;
+  const loserOf = (m) => {
+    if (!m.a || !m.b) return null;
+    if (m.winnerIdx === null) return null;
+    return m.winnerIdx === 0 ? m.b : m.a;
+  };
+  tp.a = loserOf(sfRound[0]);
+  tp.b = loserOf(sfRound[1]);
+  // Clear stale score if participants changed
+  if ((prevA !== tp.a?.name || prevB !== tp.b?.name)
+      && tp.scoreA !== 'W' && tp.scoreB !== 'W') {
+    tp.scoreA = null; tp.scoreB = null; tp.winnerIdx = null;
+  }
 }
 
 function getMatchById(rounds, id) {
@@ -129,7 +168,17 @@ function propagateSingle(rounds) {
   }
 }
 
-function setScore(rounds, matchId, sa, sb) {
+function setScore(t, matchId, sa, sb) {
+  // Third place match has no downstream effects
+  if (t.thirdPlace && t.thirdPlace.id === matchId) {
+    const tp = t.thirdPlace;
+    tp.scoreA = sa; tp.scoreB = sb;
+    if (sa > sb) tp.winnerIdx = 0;
+    else if (sb > sa) tp.winnerIdx = 1;
+    else tp.winnerIdx = null;
+    return;
+  }
+  const rounds = t.rounds;
   const m = getMatchById(rounds, matchId);
   if (!m) return;
   m.scoreA = sa;
@@ -138,6 +187,7 @@ function setScore(rounds, matchId, sa, sb) {
   else if (sb > sa) m.winnerIdx = 1;
   else m.winnerIdx = null;
   propagateSingle(rounds);
+  propagateThirdPlace(t);
   // If a downstream match's participants changed, clear its score if stale
   for (let r = 0; r < rounds.length; r++) {
     rounds[r].forEach(x => {
@@ -472,6 +522,7 @@ window.TournLogic = {
   buildDoubleElimination,
   propagateSingle,
   propagateDouble,
+  propagateThirdPlace,
   setScore,
   setScoreDouble,
   getChampion,
